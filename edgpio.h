@@ -10,28 +10,40 @@
 #include <stdint.h>
 #include <time.h>
 
+// Pin directions
 #define INPUT     1
 #define OUTPUT    0
 
+// Interrupt enable/disable
+// Pull-up resistor enable/disable
 #define ENABLED   1
 #define DISABLED  0
 
+// Types of interrupt - state change or value
 #define INTMATCH  1
 #define INTCHANGE 0
 
+// Output pin states
 #define ON        1
 #define OFF       0
 
+// Ports for any function that has "port" as a parameter
+// PORTA = pins 1-8, PORTB = pins 9-16
+#define IO_PORTA  0
+#define IO_PORTB  1
+
+// DS1307 RAM defines
+#define RTCMEMSTART 0x08
+#define RTCMEMSIZE  0x40
+
 // Specify I2C bus and sizes of read and write buffers to use 
-void i2cInit(char *busDeviceName, int rdBuffSize, int wrBuffSize);
+void i2cInit(char *busDeviceName, int rdBuffSize, int wrBuffSize, int retries);
 
 // Set IO direction for an individual pin
 void ioSetPinDirection(uint8_t pin, uint8_t direction);
 
-
 // Get IO direction for an individual pin
 uint8_t ioGetPinDirection(uint8_t pin);
-
 
 // Set direction for an IO port
 void ioSetPortDirection(uint8_t port, uint8_t direction);
@@ -39,10 +51,10 @@ void ioSetPortDirection(uint8_t port, uint8_t direction);
 // Get the direction for an IO port
 uint8_t ioGetPortDirection(uint8_t port);
 
-
 // Set the internal 100K pull-up resistors for an individual pin
 void ioSetPinPullup(uint8_t pin, uint8_t value);
 
+// Get the pull-up resistor state for a pin
 uint8_t ioGetPinPullup(uint8_t pin);
 
 // Set the internal 100K pull-up resistors for the selected IO port
@@ -63,12 +75,13 @@ uint8_t ioReadPin(uint8_t pin);
 // read all pins on the selected port
 uint8_t ioReadPort(uint8_t port);
 
+uint8_t ioReadOutputLatch(uint8_t port);
+
 // Sets the type of interrupt for each pin on the selected port
 void ioSetInterruptType(uint8_t port, uint8_t value);
 
 // Get the type of interrupt for each pin on the selected port
 uint8_t ioGetInterruptType(uint8_t port);
-
 
 //These bits set the compare value for pins configured for interrupt-on-change on the selected port.
 //If the associated pin level is the opposite of the register bit, an interrupt occurs.
@@ -95,8 +108,8 @@ uint8_t ioReadInterruptStatus(uint8_t port);
 // Read the value from the selected port at the time of the last interrupt trigger
 uint8_t ioReadInterruptCapture(uint8_t port);
 
-// Reset the interrupts A and B to 0
-void ioResetInterrupts();
+// Acknowledge interrupts on port 
+void ioAckInterrupts(uint8_t port);
 
 // Initialise the MCP32017 IO chip
 void ioInit(uint8_t reset, uint8_t busAddress);
@@ -117,9 +130,9 @@ void rtcDisableOutput();
 void rtcSetFrequency(uint8_t frequency);
 
 // Write to the memory on the DS1307.  
-int rtcWriteMemory(uint8_t address, int length, uint8_t *valuearray);
+void rtcWriteMemory(uint8_t address, int length, uint8_t *valuearray);
 
 // Read from the memory on the DS1307
-int rtcReadMemory(uint8_t address, uint8_t length, uint8_t *writearray);
+void rtcReadMemory(uint8_t address, uint8_t length, uint8_t *writearray);
 
 #endif

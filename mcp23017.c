@@ -14,10 +14,12 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "edgpio.h"
 #include "i2c.h"
 
 // Default I2C address for MCP23017
 // Can be overwridden by ioInit()
+// Call ioInit() with 0x24 as address if R19 is fitted
 #define IOADDRESS 0x20
 
 // MCP23017 register definititions
@@ -105,13 +107,13 @@ static uint8_t get_pin(uint8_t pin, uint8_t reg)
 
 static uint8_t set_port(uint8_t port, uint8_t value, uint8_t reg)
 {
-    if(port == 0)
+    if(port == IO_PORTA)
     {
         i2cWriteByteData(ioAddress, reg, value);
     }
     else
     {
-        if(port == 1)
+        if(port == IO_PORTB)
         {
             i2cWriteByteData(ioAddress, reg + 1, value);
         }
@@ -126,13 +128,13 @@ static uint8_t set_port(uint8_t port, uint8_t value, uint8_t reg)
 
 static uint8_t get_port(uint8_t port, uint8_t reg)
 {
-    if(port == 0)
+    if(port == IO_PORTA)
     {
         return (i2cReadByteData(ioAddress, reg));
     }
     else
     {
-        if(port == 1)
+        if(port == IO_PORTB)
         {
             return (i2cReadByteData(ioAddress, reg + 1));
 	}
@@ -278,6 +280,11 @@ uint8_t ioReadPort(uint8_t port)
     return get_port(port, GPIOA);
 }
 
+uint8_t ioReadOutputLatch(uint8_t port)
+{
+    return get_port(port, OLATA);
+}
+
 void ioSetInterruptType(uint8_t port, uint8_t value)
 {
     /**
@@ -390,14 +397,14 @@ uint8_t ioReadInterruptCapture(uint8_t port)
     return get_port(port, INTCAPA);
 }
 
-void ioResetInterrupts()
+void ioAckInterrupts(uint8_t port)
 {
     /**
-    * Reset the interrupts A and B to 0
+    * Reset the interrupts on port
     */
 
-    ioReadInterruptCapture(0);
-    ioReadInterruptCapture(1);
+//    usleep(200000);
+    ioReadInterruptCapture(port);
 }
 
 void ioInit(uint8_t reset, uint8_t busAddress)
@@ -407,8 +414,6 @@ void ioInit(uint8_t reset, uint8_t busAddress)
     * @param reset - If set to 1 reset registers to default values. Ports are inputs, pull-up resistors are disabled and ports are not inverted.
     * @param busAddress - if non-zero, use this as i2c bus address for MCP23017, otherwise use default
     */
-
-    volatile uint8_t dummy;
 
     if(busAddress != 0)
     {
@@ -422,15 +427,20 @@ void ioInit(uint8_t reset, uint8_t busAddress)
     i2cWriteByteData(ioAddress, IOCON, IOCON_RESET);
     if(reset == 1)
     {
+        i2cWriteByteData(ioAddress, GPIOA, 0x00);
+        i2cWriteByteData(ioAddress, GPIOB, 0x00);
         i2cWriteByteData(ioAddress, IODIRA, 0xFF);
         i2cWriteByteData(ioAddress, IODIRB, 0xFF);
         i2cWriteByteData(ioAddress, GPPUA, 0x00);
         i2cWriteByteData(ioAddress, GPPUB, 0x00);
         i2cWriteByteData(ioAddress, IPOLA, 0x00);
         i2cWriteByteData(ioAddress, IPOLB, 0x00);
-        i2cWriteByteData(ioAddress, GPINTENA, 0x00);
+	i2cWriteByteData(ioAddress, GPINTENA, 0x00);
+	i2cWriteByteData(ioAddress, GPINTENB, 0x00);
+        i2cWriteByteData(ioAddress, DEFVALA, 0x00);
+        i2cWriteByteData(ioAddress, DEFVALB, 0x00);
 
-        dummy = i2cReadByteData(ioAddress, INTCAPA);
-        dummy = i2cReadByteData(ioAddress, INTCAPB);
+        ioAckInterrupts(IO_PORTA);
+        ioAckInterrupts(IO_PORTB);
     }
 }

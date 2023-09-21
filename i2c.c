@@ -17,8 +17,11 @@
 #define __IN_I2C
 #include "i2c.h"
 
+#define OPEN_DELAY   500
+
 static char *i2cFileName;
 static uint8_t buf[10];
+static int openRetries;
 
 void i2cFatal()
 {
@@ -27,29 +30,52 @@ void i2cFatal()
     exit(1);
 }
 
-void i2cInit(char *busDeviceName, int rdBuffSize, int wrBuffSize)
+void i2cInit(char *busDeviceName, int rdBuffSize, int wrBuffSize, int retries)
 {
     i2cFileName = malloc(strlen(busDeviceName) + 1);
     strcpy(i2cFileName, busDeviceName);
 
     i2cReadBuffer = malloc(rdBuffSize);
     i2cWriteBuffer = malloc(wrBuffSize);
+
+    openRetries = retries;
+}
+
+int i2cBusOpen(uint8_t slaveAddr)
+{
+    int busFd;
+    int tries;
+
+    busFd = -1;
+    tries = 1;
+    while(busFd < 0 && tries < openRetries)
+    {
+        busFd= open(i2cFileName, O_RDWR);
+        if(busFd < 0)
+        {
+            usleep(OPEN_DELAY * 1000);
+            tries++;
+        }
+    }
+
+    if(busFd < 0)
+    {
+        i2cFatal();
+    }
+
+    if(ioctl(busFd, I2C_SLAVE, slaveAddr) < 0)
+    {
+        i2cFatal();
+    }
+
+    return busFd;
 }
 
 uint8_t i2cReadByteData(uint8_t address, uint8_t reg)
 {
     int i2cbus;
 
-    i2cbus = open(i2cFileName, O_RDWR);
-    if(i2cbus < 0)
-    {
-        i2cFatal();
-    }
-
-    if(ioctl(i2cbus, I2C_SLAVE, address) < 0)
-    {
-        i2cFatal();
-    }
+    i2cbus = i2cBusOpen(address);
 
     buf[0] = reg;
     if((write(i2cbus, buf, 1)) != 1)
@@ -71,16 +97,7 @@ void i2cReadByteArray(uint8_t address, uint8_t reg, uint8_t *rdBuffer, uint8_t l
 {
     int i2cbus;
 
-    i2cbus = open(i2cFileName, O_RDWR);
-    if(i2cbus < 0)
-    {
-        i2cFatal();
-    }
-
-    if(ioctl(i2cbus, I2C_SLAVE, address) < 0)
-    {
-        i2cFatal();
-    }
+    i2cbus = i2cBusOpen(address);
 
     buf[0] = reg;
     if((write(i2cbus, buf, 1)) != 1)
@@ -97,16 +114,7 @@ void i2cWriteByteData(uint8_t address, uint8_t reg, uint8_t value)
 {
     int i2cbus;
 
-    i2cbus = open(i2cFileName, O_RDWR);
-    if(i2cbus < 0)
-    {
-        i2cFatal();
-    }
-
-    if(ioctl(i2cbus, I2C_SLAVE, address) < 0)
-    {
-        i2cFatal();
-    }
+    i2cbus = i2cBusOpen(address);
 
     buf[0] = reg;
     buf[1] = value;
@@ -122,16 +130,7 @@ void i2cWriteByteArray(uint8_t address, uint8_t *wrBuffer, uint8_t length)
 {
     int i2cbus;
 
-    i2cbus = open(i2cFileName, O_RDWR);
-    if(i2cbus < 0)
-    {
-        i2cFatal();
-    }
-
-    if(ioctl(i2cbus, I2C_SLAVE, address) < 0)
-    {
-        i2cFatal();
-    }
+    i2cbus = i2cBusOpen(address);
 
     if((write(i2cbus, wrBuffer, length)) != length)
     {
